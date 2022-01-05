@@ -1,5 +1,6 @@
 import random
 import math
+import sys
 import pygame
 
 
@@ -8,7 +9,7 @@ class RRTMap:
         self.start = start
         self.goal = goal
         self.MapDimensions = MapDimensions
-        self.Maph, self.Mapw = self.MapDimensions
+        self.Mapw, self.Maph = self.MapDimensions
 
         # window settings
         self.MapWindowName = 'RRT path planning'
@@ -30,20 +31,29 @@ class RRTMap:
         self.Red = (255, 0, 0)
         self.white = (255, 255, 255)
 
-    def drawMap(self, obstacles):
+    def drawMap(self, obstacles, graph):
         pygame.draw.circle(self.map, self.Green, self.start, self.nodeRad + 5, 0)
         pygame.draw.circle(self.map, self.Green, self.goal, self.nodeRad + 20, 1)
-        self.drawObs(obstacles)
+        self.drawObs(obstacles, graph)
 
     def drawPath(self, path):
         for node in path:
             pygame.draw.circle(self.map, self.Red, node, 3, 0)
 
-    def drawObs(self, obstacles):
+    def drawObs(self, obstacles, graph):
+        num=0
         obstaclesList = obstacles.copy()
+        minDist = 1000
+        closest = False
         while (len(obstaclesList) > 0):
             obstacle = obstaclesList.pop(0)
+            dist = graph.distance2((obstacle[0], obstacle[1]), self.goal)
+            if dist < minDist:
+                minDist = dist
+                closest = obstacle
+            # print("OB ", obstacle[0], obstacle[1], dist)
             pygame.draw.rect(self.map, self.grey, obstacle)
+        # pygame.draw.rect(self.map, self.Red, closest)
 
 
 class RRTGraph:
@@ -52,7 +62,7 @@ class RRTGraph:
         self.start = start
         self.goal = goal
         self.goalFlag = False
-        self.maph, self.mapw = MapDimensions
+        self.mapw, self.maph = MapDimensions
         self.x = []
         self.y = []
         self.parent = []
@@ -89,6 +99,18 @@ class RRTGraph:
             obs.append(rectang)
         self.obstacles = obs.copy()
         return obs
+    
+    def make_problem_obs(self):
+        obs = [(166, 66, 30, 30), (444, 4, 30, 30), (196, 392, 30, 30), (99, 364, 30, 30), (378, 329, 30, 30), (69, 222, 30, 30), (480, 81, 30, 30), (269, 282, 30, 30), (177, 103, 30, 30), (151, 207, 30, 30), (221, 321, 30, 30), (154, 147, 30, 30), (83, 97, 30, 30), (364, 413, 30, 30), (160, 413, 30, 30), (441, 227, 30, 30), (143, 410, 30, 30), (222, 328, 30, 30), (104, 88, 30, 30), (445, 79, 30, 30)]
+        rects = []
+        for obj in obs:
+            rect = pygame.Rect(obj)
+            rects.append(rect)
+        self.obstacles = rects.copy()
+        return rects
+    
+    def nearest_ob_to_goal(self):
+        pass
 
     def add_node(self, n, x, y):
         self.x.insert(n, x)
@@ -106,6 +128,11 @@ class RRTGraph:
 
     def number_of_nodes(self):
         return len(self.x)
+
+    def distance2(self, a, b):
+        px = (float(a[0]) - float(b[0])) ** 2
+        py = (float(a[1]) - float(b[1])) ** 2
+        return (px + py) ** (0.5)
 
     def distance(self, n1, n2):
         (x1, y1) = (self.x[n1], self.y[n1])
@@ -148,6 +175,8 @@ class RRTGraph:
                 x = x1 * u + x2 * (1 - u)
                 y = y1 * u + y2 * (1 - u)
                 if rectang.collidepoint(x, y):
+                    if self.goalFlag:
+                        print("Hit object: ", rectang, x, y)
                     return True
         return False
 
@@ -156,13 +185,25 @@ class RRTGraph:
         (x2, y2) = (self.x[n2], self.y[n2])
         if self.crossObstacle(x1, x2, y1, y2):
             self.remove_node(n2)
+            # if self.goalFlag:
+                # print("Edge to goal crosses obstacle, removing node: ", n2)
+                # print("Nodes: ", self.number_of_nodes())
+            self.goalFlag = False
             return False
         else:
             self.add_edge(n1, n2)
             return True
 
-    def step(self, nnear, nrand, dmax=35):
+    def step(self, nnear, nrand, dmax=25):
         d = self.distance(nnear, nrand)
+        distance_to_goal = self.distance2((self.x[nrand], self.y[nrand]), self.goal)
+        if distance_to_goal < 1:
+            # print("Distance random sample to nearest node: ", d, self.x[nnear], self.y[nnear])
+            # print("Distance random sample to goal: ", distance_to_goal)
+            # print(self.x[nrand], self.y[nrand], self.goal)
+            if d < dmax:
+                self.goalstate = nrand
+                self.goalFlag = True
         if d > dmax:
             u = dmax / d
             (xnear, ynear) = (self.x[nnear], self.y[nnear])

@@ -13,68 +13,83 @@ def main(datafile= None):
     start=(50,50)
     goal=(600,300)
     obsdim=30
-    obsnum=20
+    obsnum=30
     iteration=0
     t1=0
-    input_data = None
+    obstacles=None
+    input_data = {}
 
     if datafile is not None:
         with open(datafile, 'r') as f:
             input_data = json.load(f)
             f.close()
-            print("DATA: ", input_data)
+            # print("DATA: ", input_data)
 
     global map, graph
     map=RRTMap(start,goal,dimensions,obsdim,obsnum)
     graph=RRTGraph(start,goal,dimensions,obsdim,obsnum)
 
-    # if datafile is not None:
-    # # obstacles=graph.make_problem_obs()
-    #     pass
-    # else:
-    #     pass
 
-    obstacles=graph.makeobs()
+    if "objects" in input_data:
+        obstacles=graph.remake_obs(input_data["objects"])
+    else:
+        obstacles=graph.makeobs()
     map.drawMap(obstacles, graph)
+    pygame.display.update()
+    pygame.event.clear()
+    pygame.event.wait()
 
-    t1=time.time()
-    while (not graph.path_to_goal()):
-        time.sleep(0.005)
-        elapsed=time.time()-t1
-        t1=time.time()
-        #raise exception if timeout
-        # if elapsed > 10:
-        #     print('timeout re-initiating the calculations')
-        #     raise
+    if "nodes" in input_data:
+        for n in range(1, len(input_data["nodes"])):
+            node = input_data["nodes"][n]
+            graph.add_node(n, node[0], node[1])
+            pygame.draw.circle(map.map, map.grey, node, map.nodeRad*2, 0)
+            if "edges" in input_data:
+                parent = input_data["nodes"][ input_data["edges"][n] ]
+                pygame.draw.line(map.map, map.Blue, node, parent, map.edgeThickness)
+                graph.add_edge(input_data["edges"][n], n)
 
-        if iteration % 10 == 0:
-            X, Y, Parent = graph.bias(goal)
+        if "path" in input_data:
+            graph.goalstate = input_data["path"][0]
+            graph.goalFlag = True
+
+            for n in input_data["path"]:
+                graph.path.append(n)
+
+    else:
+        while (not graph.path_to_goal()):
+
+            if iteration % 10 == 0:
+                X, Y, Parent = graph.bias(goal)
+            else:
+                X, Y, Parent = graph.expand()
+
             pygame.draw.circle(map.map, map.grey, (X[-1], Y[-1]), map.nodeRad*2, 0)
             pygame.draw.line(map.map, map.Blue, (X[-1], Y[-1]), (X[Parent[-1]], Y[Parent[-1]]),
-                             map.edgeThickness)
+                                map.edgeThickness)
 
-        else:
-            X, Y, Parent = graph.expand()
-            pygame.draw.circle(map.map, map.grey, (X[-1], Y[-1]), map.nodeRad*2, 0)
-            pygame.draw.line(map.map, map.Blue, (X[-1], Y[-1]), (X[Parent[-1]], Y[Parent[-1]]),
-                             map.edgeThickness)
+            if iteration % 5 == 0:
+                pygame.display.update()
+                # pygame.event.wait(0)
+            iteration += 1
 
-        if iteration % 5 == 0:
-            pygame.display.update()
-            # pygame.event.wait(0)
-        iteration += 1
-
-        if graph.number_of_nodes() > 50000:
-            print("Too many nodes: ", graph.number_of_nodes())
-            print("Obs: ", graph.obstacles.copy())
-            pygame.event.clear()
-            pygame.event.wait(0)
-            raise Exception('Too many nodes')
-            sys.exit()
+            if graph.number_of_nodes() > 50000:
+                print("Too many nodes: ", graph.number_of_nodes())
+                pygame.event.clear()
+                pygame.event.wait(0)
+                sys.exit()
 
     map.drawPath(graph.getPathCoords())
     print("Reached goal. Nodes: ", graph.number_of_nodes())
+
     pygame.display.update()
+    # pygame.event.clear()
+    # pygame.event.wait()
+    # waypoints = graph.waypoints2path()
+    # for node in waypoints:
+    #     pygame.draw.circle(map.map, map.Red, node, 3, 0)
+    # # print("WAYPOINTS: ", waypoints)
+    # pygame.display.update()
 
 def continue_or_exit():
     waiting=True
@@ -96,6 +111,7 @@ def continue_or_exit():
                         "objects": obs,
                         "nodes": tuple(zip(graph.x, graph.y)),
                         "path": graph.path,
+                        "edges": graph.parent,
                     }
 
                     filename = f"data{os.getpid()}.json"

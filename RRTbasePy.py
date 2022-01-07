@@ -100,11 +100,11 @@ class RRTGraph:
         self.obstacles = obs.copy()
         return obs
     
-    def make_problem_obs(self):
-        obs = [(166, 66, 30, 30), (444, 4, 30, 30), (196, 392, 30, 30), (99, 364, 30, 30), (378, 329, 30, 30), (69, 222, 30, 30), (480, 81, 30, 30), (269, 282, 30, 30), (177, 103, 30, 30), (151, 207, 30, 30), (221, 321, 30, 30), (154, 147, 30, 30), (83, 97, 30, 30), (364, 413, 30, 30), (160, 413, 30, 30), (441, 227, 30, 30), (143, 410, 30, 30), (222, 328, 30, 30), (104, 88, 30, 30), (445, 79, 30, 30)]
+    def remake_obs(self, obs):
+        # obs = [(166, 66, 30, 30), (444, 4, 30, 30), (196, 392, 30, 30), (99, 364, 30, 30), (378, 329, 30, 30), (69, 222, 30, 30), (480, 81, 30, 30), (269, 282, 30, 30), (177, 103, 30, 30), (151, 207, 30, 30), (221, 321, 30, 30), (154, 147, 30, 30), (83, 97, 30, 30), (364, 413, 30, 30), (160, 413, 30, 30), (441, 227, 30, 30), (143, 410, 30, 30), (222, 328, 30, 30), (104, 88, 30, 30), (445, 79, 30, 30)]
         rects = []
         for obj in obs:
-            rect = pygame.Rect(obj)
+            rect = pygame.Rect(obj, (self.obsDim, self.obsDim))
             rects.append(rect)
         self.obstacles = rects.copy()
         return rects
@@ -278,19 +278,19 @@ class RRTGraph:
         oldpath = self.getPathCoords()
         path = []
         for i in range(0, len(self.path) - 1):
-            print(i)
+            # print(i)
             if i >= len(self.path):
                 break
             x1, y1 = oldpath[i]
             x2, y2 = oldpath[i + 1]
-            print('---------')
-            print((x1, y1), (x2, y2))
+            # print('---------')
+            # print((x1, y1), (x2, y2))
             for i in range(0, 5):
                 u = i / 5
                 x = int(x2 * u + x1 * (1 - u))
                 y = int(y2 * u + y1 * (1 - u))
                 path.append((x, y))
-                print((x, y))
+                # print((x, y))
 
         return path
 
